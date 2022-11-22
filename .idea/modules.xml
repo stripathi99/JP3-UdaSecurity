@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/JP3-UdaSecurity.iml" filepath="$PROJECT_DIR$/.idea/JP3-UdaSecurity.iml" />
-      <module fileurl="file://$PROJECT_DIR$/starter/catpoint-parent/catpoint-parent.iml" filepath="$PROJECT_DIR$/starter/catpoint-parent/catpoint-parent.iml" />
     </modules>
   </component>
 </project>
