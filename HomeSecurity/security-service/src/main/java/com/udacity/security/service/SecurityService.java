@@ -6,7 +6,6 @@ import com.udacity.security.data.AlarmStatus;
 import com.udacity.security.data.ArmingStatus;
 import com.udacity.security.data.SecurityRepository;
 import com.udacity.security.data.Sensor;
-
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
 import java.util.Set;
@@ -117,11 +116,18 @@ public class SecurityService {
   /**
    * Internal method for updating the alarm status when a sensor has been deactivated
    */
-  private void handleSensorDeactivated() {
-    switch (getAlarmStatus()) {
-      case PENDING_ALARM -> setAlarmStatus(AlarmStatus.NO_ALARM);
-      case ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
-    }
+  private void handleSensorDeactivated(boolean flag) {
+      if (getAlarmStatus() == AlarmStatus.PENDING_ALARM) {
+          if (flag) {
+              setAlarmStatus(AlarmStatus.NO_ALARM);
+          } else {
+              setAlarmStatus(AlarmStatus.ALARM);
+          }
+      }
+//    switch (getAlarmStatus()) {
+//      case PENDING_ALARM -> setAlarmStatus(AlarmStatus.NO_ALARM);
+//      case ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
+//    }
   }
 
   /**
@@ -136,11 +142,23 @@ public class SecurityService {
       handleSensorActivated();
     } else if (sensor.getActive() && !active) {
       sensor.setActive(false);
-      handleSensorDeactivated();
+      handleSensorDeactivated(false);
+    } else if (!sensor.getActive() && !active) {
+        // do nothing
+    } else {
+        handleSensorDeactivated(false);
     }
     sensor.setActive(active);
     securityRepository.updateSensor(sensor);
+
+    if (allSensorsInactive()) {
+        handleSensorDeactivated(true);
+    }
   }
+
+    private boolean allSensorsInactive() {
+        return getSensors().stream().noneMatch(Sensor::getActive);
+    }
 
   /**
    * Send an image to the SecurityService for processing. The securityService will use its provided
