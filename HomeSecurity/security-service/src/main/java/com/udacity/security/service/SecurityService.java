@@ -1,5 +1,9 @@
 package com.udacity.security.service;
 
+import static com.udacity.security.data.AlarmStatus.NO_ALARM;
+import static com.udacity.security.data.ArmingStatus.ARMED_HOME;
+import static com.udacity.security.data.ArmingStatus.DISARMED;
+
 import com.udacity.image.service.ImageService;
 import com.udacity.security.application.StatusListener;
 import com.udacity.security.data.AlarmStatus;
@@ -24,7 +28,7 @@ public class SecurityService {
   private final SecurityRepository securityRepository;
   private final Set<StatusListener> statusListeners = new HashSet<>();
 
-  private boolean catDetected = false;
+  private boolean detectionFlag = false;
 
   public SecurityService(SecurityRepository securityRepository, ImageService imageService) {
     this.securityRepository = securityRepository;
@@ -38,26 +42,19 @@ public class SecurityService {
    * @param armingStatus
    */
   public void setArmingStatus(ArmingStatus armingStatus) {
-    if (armingStatus == ArmingStatus.DISARMED) {
-      setAlarmStatus(AlarmStatus.NO_ALARM);
-    }
-
-    if (catDetected && armingStatus == ArmingStatus.ARMED_HOME) {
+    if (detectionFlag && armingStatus == ARMED_HOME) {
       setAlarmStatus(AlarmStatus.ALARM);
     }
 
-    if (armingStatus == ArmingStatus.ARMED_HOME || armingStatus == ArmingStatus.ARMED_AWAY) {
-      resetAllSensors();
+    if (armingStatus == DISARMED) {
+      setAlarmStatus(NO_ALARM);
+    } else {
+      getSensors().stream().peek(sensor -> sensor.setActive(false)).collect(Collectors.toSet())
+          .forEach(securityRepository::updateSensor);
     }
 
     securityRepository.setArmingStatus(armingStatus);
     statusListeners.forEach(StatusListener::sensorStatusChanged);
-  }
-
-  private void resetAllSensors() {
-    Set<Sensor> sensors = getSensors().stream().peek(s -> s.setActive(false)).collect(
-        Collectors.toSet());
-    sensors.forEach(securityRepository::updateSensor);
   }
 
   /**
@@ -67,11 +64,11 @@ public class SecurityService {
    * @param cat True if a cat is detected, otherwise false.
    */
   private void catDetected(Boolean cat) {
-    catDetected = cat;
-    if (cat && getArmingStatus() == ArmingStatus.ARMED_HOME) {
+    detectionFlag = cat;
+    if (cat && getArmingStatus() == ARMED_HOME) {
       setAlarmStatus(AlarmStatus.ALARM);
     } else {
-      setAlarmStatus(AlarmStatus.NO_ALARM);
+      setAlarmStatus(NO_ALARM);
     }
 
     statusListeners.forEach(sl -> sl.catDetected(cat));
@@ -104,7 +101,7 @@ public class SecurityService {
    * Internal method for updating the alarm status when a sensor has been activated.
    */
   private void handleSensorActivated() {
-    if (getArmingStatus() == ArmingStatus.DISARMED) {
+    if (getArmingStatus() == DISARMED) {
       return; //no problem if the system is disarmed
     }
     switch (getAlarmStatus()) {
@@ -117,13 +114,13 @@ public class SecurityService {
    * Internal method for updating the alarm status when a sensor has been deactivated
    */
   private void handleSensorDeactivated(boolean flag) {
-      if (getAlarmStatus() == AlarmStatus.PENDING_ALARM) {
-          if (flag) {
-              setAlarmStatus(AlarmStatus.NO_ALARM);
-          } else {
-              setAlarmStatus(AlarmStatus.ALARM);
-          }
+    if (getAlarmStatus() == AlarmStatus.PENDING_ALARM) {
+      if (flag) {
+        setAlarmStatus(NO_ALARM);
+      } else {
+        setAlarmStatus(AlarmStatus.ALARM);
       }
+    }
 //    switch (getAlarmStatus()) {
 //      case PENDING_ALARM -> setAlarmStatus(AlarmStatus.NO_ALARM);
 //      case ALARM -> setAlarmStatus(AlarmStatus.PENDING_ALARM);
@@ -144,21 +141,21 @@ public class SecurityService {
       sensor.setActive(false);
       handleSensorDeactivated(false);
     } else if (!sensor.getActive() && !active) {
-        // do nothing
+      // do nothing
     } else {
-        handleSensorDeactivated(false);
+      handleSensorDeactivated(false);
     }
     sensor.setActive(active);
     securityRepository.updateSensor(sensor);
 
     if (allSensorsInactive()) {
-        handleSensorDeactivated(true);
+      handleSensorDeactivated(true);
     }
   }
 
-    private boolean allSensorsInactive() {
-        return getSensors().stream().noneMatch(Sensor::getActive);
-    }
+  private boolean allSensorsInactive() {
+    return getSensors().stream().noneMatch(Sensor::getActive);
+  }
 
   /**
    * Send an image to the SecurityService for processing. The securityService will use its provided
