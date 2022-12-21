@@ -157,7 +157,11 @@ class SecurityServiceTest {
   @MethodSource("armingStatus")
   void whenSystemArmed_resetSensors(ArmingStatus armingStatus) {
     when(securityRepository.getSensors()).thenReturn(
-        new HashSet<>(List.of(new Sensor("test-sensor1", DOOR), new Sensor("test-sensor2", DOOR))));
+        new HashSet<>(
+            List.of(
+                new Sensor("test-sensor1", DOOR),
+                new Sensor("test-sensor2", DOOR)
+            )));
     securityService.setArmingStatus(armingStatus);
     securityService.getSensors().forEach(sensor -> assertFalse(sensor.getActive()));
   }
