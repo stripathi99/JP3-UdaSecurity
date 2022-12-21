@@ -1,5 +1,6 @@
 package com.udacity.security.service;
 
+import static com.udacity.security.data.AlarmStatus.ALARM;
 import static com.udacity.security.data.AlarmStatus.NO_ALARM;
 import static com.udacity.security.data.ArmingStatus.ARMED_HOME;
 import static com.udacity.security.data.ArmingStatus.DISARMED;
@@ -13,7 +14,7 @@ import com.udacity.security.data.Sensor;
 import java.awt.image.BufferedImage;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 /**
  * Service that receives information about changes to the security system. Responsible for
@@ -28,8 +29,6 @@ public class SecurityService {
   private final SecurityRepository securityRepository;
   private final Set<StatusListener> statusListeners = new HashSet<>();
 
-  private boolean detectionFlag = false;
-
   public SecurityService(SecurityRepository securityRepository, ImageService imageService) {
     this.securityRepository = securityRepository;
     this.imageService = imageService;
@@ -42,18 +41,26 @@ public class SecurityService {
    * @param armingStatus
    */
   public void setArmingStatus(ArmingStatus armingStatus) {
-    if (detectionFlag && armingStatus == ARMED_HOME) {
-      setAlarmStatus(AlarmStatus.ALARM);
-    }
-
-    if (armingStatus == DISARMED) {
+    if (armingStatus == ARMED_HOME) {
+      setAlarmStatus(ALARM);
+    } else if (armingStatus == DISARMED) {
       setAlarmStatus(NO_ALARM);
     } else {
-      getSensors().stream().peek(sensor -> sensor.setActive(false)).collect(Collectors.toSet())
-          .forEach(securityRepository::updateSensor);
+      ConcurrentSkipListSet<Sensor> sensors = new ConcurrentSkipListSet<>(getSensors());
+      sensors.forEach(sensor -> changeSensorActivationStatus(sensor, false));
     }
-
-    securityRepository.setArmingStatus(armingStatus);
+//    if (detectionFlag && armingStatus == ARMED_HOME) {
+//      setAlarmStatus(AlarmStatus.ALARM);
+//    }
+//
+//    if (armingStatus == DISARMED) {
+//      setAlarmStatus(NO_ALARM);
+//    } else {
+//      getSensors().stream().peek(sensor -> sensor.setActive(false)).collect(Collectors.toSet())
+//          .forEach(securityRepository::updateSensor);
+//    }
+//
+//    securityRepository.setArmingStatus(armingStatus);
     statusListeners.forEach(StatusListener::sensorStatusChanged);
   }
 
@@ -64,7 +71,7 @@ public class SecurityService {
    * @param cat True if a cat is detected, otherwise false.
    */
   private void catDetected(Boolean cat) {
-    detectionFlag = cat;
+    boolean detectionFlag = cat;
     if (cat && getArmingStatus() == ARMED_HOME) {
       setAlarmStatus(AlarmStatus.ALARM);
     } else {
