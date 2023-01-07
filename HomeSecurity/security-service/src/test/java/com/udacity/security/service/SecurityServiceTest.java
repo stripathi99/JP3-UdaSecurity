@@ -13,10 +13,12 @@ import static org.mockito.ArgumentMatchers.anyFloat;
 import static org.mockito.Mockito.atMostOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.udacity.image.service.ImageService;
+import com.udacity.security.application.StatusListener;
 import com.udacity.security.data.AlarmStatus;
 import com.udacity.security.data.ArmingStatus;
 import com.udacity.security.data.SecurityRepository;
@@ -46,6 +48,9 @@ class SecurityServiceTest {
   @Mock
   private ImageService imageService;
 
+  @Mock
+  private StatusListener statusListener;
+
   private static Stream<Arguments> sensorActiveStatus() {
     return Stream.of(
         Arguments.of(true),
@@ -63,7 +68,8 @@ class SecurityServiceTest {
   private static Stream<Arguments> alarmStatus() {
     return Stream.of(
         Arguments.of(NO_ALARM),
-        Arguments.of(ALARM)
+        Arguments.of(ALARM),
+        Arguments.of(PENDING_ALARM)
     );
   }
 
@@ -97,6 +103,7 @@ class SecurityServiceTest {
   @Test
   void whenPendingAlarmAndAllSensorsInactive_noAlarm() {
     when(securityRepository.getAlarmStatus()).thenReturn(PENDING_ALARM);
+    sensor.setActive(false);
     securityService.changeSensorActivationStatus(sensor, false);
     verify(securityRepository, atMostOnce()).setAlarmStatus(NO_ALARM);
   }
@@ -116,7 +123,7 @@ class SecurityServiceTest {
     when(securityRepository.getAlarmStatus()).thenReturn(PENDING_ALARM);
     sensor.setActive(true);
     securityService.changeSensorActivationStatus(sensor, true);
-    verify(securityRepository, atMostOnce()).setAlarmStatus(ALARM);
+    verify(securityRepository, times(1)).setAlarmStatus(ALARM);
   }
 
   // Scenario 6: If a sensor is deactivated while already inactive, make no changes to the alarm state.
@@ -124,6 +131,7 @@ class SecurityServiceTest {
   @MethodSource("alarmStatus")
   void whenSensorDeactivatedAndStatusPending_noAlarmStateChange(AlarmStatus alarmStatus) {
     when(securityRepository.getAlarmStatus()).thenReturn(alarmStatus);
+    sensor.setActive(false);
     securityService.changeSensorActivationStatus(sensor, false);
     verify(securityRepository, never()).setAlarmStatus(any(AlarmStatus.class));
   }
@@ -156,9 +164,9 @@ class SecurityServiceTest {
   @ParameterizedTest
   @MethodSource("armingStatus")
   void whenSystemArmed_resetSensors(ArmingStatus armingStatus) {
+    when(securityRepository.getAlarmStatus()).thenReturn(PENDING_ALARM);
     when(securityRepository.getSensors()).thenReturn(
-        new HashSet<>(
-            List.of(
+        new HashSet<>(List.of(
                 new Sensor("test-sensor1", DOOR),
                 new Sensor("test-sensor2", DOOR)
             )));
@@ -174,5 +182,37 @@ class SecurityServiceTest {
     securityService.processImage(mock(BufferedImage.class));
     securityService.setArmingStatus(ARMED_HOME);
     verify(securityRepository, atMostOnce()).setAlarmStatus(ALARM);
+  }
+
+  // Extra Test 1
+  @Test
+  void toggleStatusListener() {
+    securityService.addStatusListener(statusListener);
+    securityService.removeStatusListener(statusListener);
+  }
+
+  // Extra Test 2
+  @Test
+  void addRemoveSensors() {
+    securityService.addSensor(sensor);
+    securityService.removeSensor(sensor);
+  }
+
+  // Extra Test 3
+  @Test
+  void whenSensorActiveAndPendingAlarm() {
+    when(securityRepository.getAlarmStatus()).thenReturn(PENDING_ALARM);
+    sensor.setActive(true);
+    securityService.changeSensorActivationStatus(sensor, false);
+    verify(securityRepository, times(1)).setAlarmStatus(NO_ALARM);
+  }
+
+  // Extra Test 4
+  @Test
+  void whenSensorActiveAndAlarm() {
+    when(securityRepository.getAlarmStatus()).thenReturn(ALARM);
+    sensor.setActive(true);
+    securityService.changeSensorActivationStatus(sensor, false);
+    verify(securityRepository, atMostOnce()).setAlarmStatus(PENDING_ALARM);
   }
 }
