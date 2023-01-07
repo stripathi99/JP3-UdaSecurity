@@ -16,15 +16,15 @@ import java.util.stream.Collectors;
 public class ControlPanel extends JPanel {
 
     private SecurityService securityService;
-    //private SensorPanel sensorPanel;
+    private SensorPanel sPanel;
     private Map<ArmingStatus, JButton> buttonMap;
 
 
-    public ControlPanel(SecurityService securityService) { // , SensorPanel sensorPanel
+    public ControlPanel(SecurityService securityService, SensorPanel sPanel) { // , SensorPanel sensorPanel
         super();
         setLayout(new MigLayout());
         this.securityService = securityService;
-        //this.sensorPanel = sensorPanel;
+        this.sPanel = sPanel;
 
         JLabel panelLabel = new JLabel("System Control");
         panelLabel.setFont(StyleService.HEADING_FONT);
@@ -40,7 +40,7 @@ public class ControlPanel extends JPanel {
             v.addActionListener(e -> {
                 securityService.setArmingStatus(k);
                 buttonMap.forEach((status, button) -> button.setBackground(status == k ? status.getColor() : null));
-                //sensorPanel.sensorStatusChanged();
+                sPanel.sensorStatusChanged();
             });
         });
 
